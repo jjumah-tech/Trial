@@ -8,6 +8,11 @@ description: |
 on:
   schedule: daily
   workflow_dispatch:
+    inputs:
+      message:
+        description: 'Trigger message'
+        required: false
+        type: string
 
 permissions:
   contents: read
