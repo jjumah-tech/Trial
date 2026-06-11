@@ -31,7 +31,10 @@ safe-outputs:
     title-prefix: "[repo-status] "
     labels: [report, daily-status]
     close-older-issues: true
-engine: gemini
+engine:
+  id: antigravity
+  env:
+    ANTIGRAVITY_API_KEY: ${{ secrets.ANTIGRAVITY_API_KEY }}
 
 source: githubnext/agentics/workflows/repo-status.md@e15e57b40918dbca11b350c55d02ab61934afa75
 ---
