@@ -18,11 +18,8 @@ network: defaults
 
 tools:
   github:
-    # If in a public repo, setting `lockdown: false` allows
-    # reading issues, pull requests and comments from 3rd-parties
-    # If in a private repo this has no particular effect.
     lockdown: false
-    min-integrity: none # This workflow is allowed to examine and comment on any issues
+    min-integrity: none
 
 safe-outputs:
   mentions: false
@@ -31,7 +28,7 @@ safe-outputs:
     title-prefix: "[repo-status] "
     labels: [report, daily-status]
     close-older-issues: true
-source: githubnext/agentics/workflows/repo-status.md@e15e57b40918dbca11b350c55d02ab61934afa75
+
 ---
 
 # Repo Status
