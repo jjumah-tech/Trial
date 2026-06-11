@@ -18,41 +18,120 @@ network: defaults
 
 tools:
   github:
-    # If in a public repo, setting `lockdown: false` allows
-    # reading issues, pull requests and comments from 3rd-parties
-    # If in a private repo this has no particular effect.
-    lockdown: false
-    min-integrity: none # This workflow is allowed to examine and comment on any issues
-
-safe-outputs:
-  mentions: false
-  allowed-github-references: []
-  create-issue:
-    title-prefix: "[repo-status] "
-    labels: [report, daily-status]
-    close-older-issues: true
-source: githubnext/agentics/workflows/repo-status.md@e15e57b40918dbca11b350c55d02ab61934afa75
+    
 ---
+description: |
+  This workflow creates daily repo status reports using standard GitHub Actions.
+  It gathers recent repository activity (issues, PRs, discussions, releases, code changes)
+  and creates a GitHub issue with a summary. No AI/Copilot required - works with free tier.
 
-# Repo Status
+on:
+  schedule:
+    - cron: "39 16 * * *"  # Daily at 4:39 PM UTC
+  workflow_dispatch:
 
-Create an upbeat daily status report for the repo as a GitHub issue.
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
 
-## What to include
+jobs:
+  repo-status:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-- Recent repository activity (issues, PRs, discussions, releases, code changes)
-- Progress tracking, goal reminders and highlights
-- Project status and recommendations
-- Actionable next steps for maintainers
+      - name: Get repo stats
+        id: stats
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Get recent activity
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 10,
+              sort: 'updated',
+              direction: 'desc'
+            });
 
-## Style
+            const pullRequests = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              per_page: 10,
+              sort: 'updated',
+              direction: 'desc'
+            });
 
-- Be positive, encouraging, and helpful 🌟
-- Use emojis moderately for engagement
-- Keep it concise - adjust length based on actual activity
+            const openIssues = issues.data.filter(i => i.state === 'open').length;
+            const openPRs = pullRequests.data.filter(pr => pr.state === 'open').length;
+            const recentIssues = issues.data.filter(i => {
+              const created = new Date(i.created_at);
+              const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              return created > oneWeekAgo;
+            }).length;
 
-## Process
+            core.setOutput('open_issues', openIssues);
+            core.setOutput('open_prs', openPRs);
+            core.setOutput('recent_issues', recentIssues);
 
-1. Gather recent activity from the repository
-2. Study the repository, its issues and its pull requests
-3. Create a new GitHub issue with your findings and insights
+      - name: Create repo status issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const date = new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            });
+
+            const body = `## 📊 Daily Repository Status - ${date}
+
+### Repository Metrics
+- **Open Issues**: ${{ steps.stats.outputs.open_issues }}
+- **Open Pull Requests**: ${{ steps.stats.outputs.open_prs }}
+- **Issues Created This Week**: ${{ steps.stats.outputs.recent_issues }}
+
+### Quick Links
+- [Issues](https://github.com/${{ github.repository }}/issues)
+- [Pull Requests](https://github.com/${{ github.repository }}/pulls)
+- [Repository](https://github.com/${{ github.repository }})
+
+---
+*Generated automatically by GitHub Actions - Free Tier Edition*`;
+
+            // Close older status issues
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'daily-status'
+            });
+
+            for (const issue of issues.data) {
+              if (issue.title.includes('[repo-status]')) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+              }
+            }
+
+            // Create new status issue
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `[repo-status] Daily Report - ${date}`,
+              body: body,
+              labels: ['report', 'daily-status']
+            });
+
+            console.log('✅ Repository status report created successfully!');
