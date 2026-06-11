@@ -14,7 +14,9 @@ permissions:
   issues: read
   pull-requests: read
 
-network: defaults
+network: 
+  allow:
+    - antigravity-unleash.goog
 
 tools:
   github:
