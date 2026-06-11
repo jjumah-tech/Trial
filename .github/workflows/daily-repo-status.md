@@ -17,6 +17,7 @@ permissions:
 network:
   allowed:
     - antigravity-unleash.goog
+    - playwright.azureedge.net
 
 tools:
   github:
